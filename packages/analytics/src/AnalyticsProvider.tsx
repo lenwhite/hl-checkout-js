@@ -20,6 +20,25 @@ interface AnalyticsProviderProps {
     children?: ReactNode;
 }
 
+// Simple function to push to dataLayer with minimal type issues
+function pushToDataLayer(eventName: string, eventData: Record<string, unknown> = {}): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const dataLayerName = 'dataLayer';
+    const win = window as any;
+
+    // Initialize dataLayer if it doesn't exist
+    win[dataLayerName] = win[dataLayerName] || [];
+
+    // Push event data to dataLayer
+    win[dataLayerName].push({
+        event: eventName,
+        ...eventData,
+    });
+}
+
 const AnalyticsProvider = ({ checkoutService, children }: AnalyticsProviderProps) => {
     const getStepTracker = useMemo(
         () => createAnalyticsService<StepTracker>(createStepTracker, [checkoutService]),
