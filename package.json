@@ -195,5 +195,8 @@
     "scripts": {
       "prebump": "./scripts/standard-version/prebump.js"
     }
+  },
+  "volta": {
+    "node": "22.18.0"
   }
 }
