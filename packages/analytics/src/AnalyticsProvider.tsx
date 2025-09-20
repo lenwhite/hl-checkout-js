@@ -7,6 +7,7 @@ import {
     createBraintreeAnalyticTracker,
     createPayPalCommerceAnalyticTracker,
     createStepTracker,
+    type Order,
     type PayPalCommerceAnalyticTrackerService,
     type StepTracker,
 } from '@bigcommerce/checkout-sdk';
@@ -38,6 +39,30 @@ export function pushToDataLayer(eventName: string, eventData: Record<string, unk
         event: eventName,
         ...eventData,
     });
+}
+
+// Helper function to extract purchase analytics data from order information
+function extractPurchaseAnalyticsData(order: Order) {
+    // Combine physical and digital items
+    const allItems = [...order.lineItems.physicalItems, ...order.lineItems.digitalItems];
+
+    // Transform items to analytics format
+    const items = allItems.map((item) => ({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        item_id: item.sku,
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        item_name: item.name,
+        quantity: item.quantity,
+        price: item.salePrice,
+    }));
+
+    return {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        transaction_id: String(order.orderId),
+        value: order.orderAmount,
+        currency: order.currency?.code,
+        items,
+    };
 }
 
 const AnalyticsProvider = ({ checkoutService, children }: AnalyticsProviderProps) => {
@@ -125,6 +150,22 @@ const AnalyticsProvider = ({ checkoutService, children }: AnalyticsProviderProps
         getBodlService().paymentComplete();
         getBraintreeAnalyticTracker().paymentComplete();
         getPayPalCommerceAnalyticTracker().paymentComplete();
+
+        // Get order data and send purchase analytics
+        try {
+            const state = checkoutService.getState();
+            const order = state.data.getOrder();
+
+            if (order) {
+                const purchaseData = extractPurchaseAnalyticsData(order);
+
+                pushToDataLayer('purchase', purchaseData);
+            }
+        } catch (error) {
+            // Silently handle any errors to avoid breaking the checkout flow
+            // eslint-disable-next-line no-console
+            console.warn('Failed to send purchase analytics:', error);
+        }
     };
 
     const exitCheckout = () => {
